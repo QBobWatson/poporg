@@ -1,0 +1,37 @@
+#+TITLE: PopOrg — Editing program comments or strings with Org mode
+#+OPTIONS: H:2
+#+SETUPFILE: ~/fp/notes/setup/nodemacs.org
+#+INCLUDE: ~/fp/notes/setup/jqindex.org
+** Introduction
+PopOrg is a small Emacs Lisp project, to help editing program string or comments using Org mode.
+
+Literate programming with Org is often presented as mixing programs snippets within an Org document, with tools to extract pure programs out of the Org files.  I would prefer it the other way around: mixing documentation snippets within program source code, with tools to extract pure Org documentation from the source files.
+
+Emacs does not nicely handle multiple major modes in a single buffer.  Many solutions are suggested, all yielding some level of happiness, but none are perfect.  The PopOrg approach extracts the comment or the string, from a buffer using a major programming mode, into a separate buffer in full Org mode, but containing only that comment or string.  Once the edit is completed, the modified comment or string is re-integrated in the buffer containing the program, replacing the original contents.
+** Installation
+To install PopOrg, move files =poporg.el= and =rebox.el= at a place where Emacs will find them.  You might want to byte-compile the files if you want.
+
+To use PopOrg, you need to pick some unused keybinding and add a few lines to your =~/.emacs= file.  For one, I picked =C-c e o= and added these lines:
+
+#+BEGIN_SRC sh
+(autoload 'poporg-dwim "poporg" nil t)
+(global-set-key "\C-ceo" 'poporg-dwim)
+#+END_SRC
+** Usage
+While editing a buffer containing a program, you may edit a comment block or a string (often a doc-string) in Org mode by placing the cursor within or nearby that comment or string, and calling =poporg-dwim= using you selected keybinding.  This pops another buffer in Org Mode (hence /PopOrg/ for the project name), containing the comment or string.  Once your edition is done, right in the popped up editing buffer, call =poporg-dwim= again to complete the edition.
+
+More precisely, if the cursor is within a comment block or a string, this is what gets edited.  If the cursor is not within a comment block or a string, a comment or string following the cursor /on the same line/ gets selected instead.  Otherwise, this is the comment or string which precedes the cursor which is selected for edition.
+
+While the comment or string is being copied in the editing buffer and until the edition is completed, the original comment or string in the original buffer is greyed out and protected against accidental modification.
+** History and caveats
+PopOrg recycles a few ideas from two previous Emacs projects:
+
+- my PO mode ([[http://git.savannah.gnu.org/cgit/gettext.git/tree/gettext-tools/misc/po-mode.el][source]] and [[http://www.gnu.org/software/gettext/manual/html_node/PO-Mode.html][documentation]]), for the idea of using separate buffers for edition.  For PO files, the need is quite clear: =msgstr= strings use escaping which is easy to get wrong, so the idea of a separate buffer is a way to remove that concern from the user, PO mode unquotes before presenting the string to the user, and requotes it once the editing is completed.  This was also solving the problem that =msgid= and =msgstr= fields, and the reminder of the PO file, could be using different character sets.  I intend to recycle some ideas from PO mode for editing many comments and strings at once, instead of necessarily one after another.
+
+- my Rebox tool ([[https://github.com/pinard/Pymacs/blob/master/contrib/rebox/rebox.el][source]] and [[https://github.com/pinard/Pymacs/blob/master/contrib/rebox/README][documentation]]), for finding the boundaries of block comments.  Originally in Emacs Lisp, this tool has later rewritten in Python at the time I was developing Pymacs, with a few minor improvements while doing so.  Le Wang, starting from my old Emacs Lisp, wrote an /much/ enhanced version ([[https://github.com/lewang/rebox2/blob/master/rebox2.el][source]] and [[http://youtube.googleapis.com/v/53YeTdVtDkU][video]]).  For PopOrg, however, the needs are modest, so it includes the old Emacs Lisp version.  See the very last section of the documentation for more historial context.
+** Caveats
+- I do not much like to depend on Rebox, however, which is a complex piece of code compared to the reminder of PopOrg.  For comments, Rebox studies the file contents to guess comment delimiters and box styles, while for strings, PopOrg rather relies the syntax analysis previously made by the programming major mode, and expressed through faces.  These approaches are too different, maybe both are wrong anyway.  One advantage of using Rebox, however, is that one could still edit Org mode comments in complex boxing cases.
+
+- Once the string and comment is back into the programming buffer, we loose Org mode highlighting and presentation details, which is unfortunate.  Multiple editing modes in Emacs are not able to properly highlight sections of a file according to the intended mode for each section: there is a single mode for the whole buffer in fact.  Org mode, on the other hand, has the virtue of properly highlighting the code snippets it contains, so surely, there is a way to do things properly, that might be understood and recycled, I'm not sure.
+
+- PopOrg should ideally be accompanied by a set conventions and some tools for proper extraction of an Org file out of program sources.
