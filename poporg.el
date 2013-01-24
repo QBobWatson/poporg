@@ -304,7 +304,7 @@ START and END should be already bound within the caller."
           (skip-chars-forward " "))))))
 
 (defun poporg-kill-buffer-query ()
-  "Inhibit killing of a buffer with pending edits."
+  "Beware any killing that might lose pending edits."
   (let ((overlays poporg-overlays)
         (value t))
     (while overlays
@@ -315,6 +315,10 @@ START and END should be already bound within the caller."
           (message "First, either complete or kill this edit.")
           (setq overlays nil
                 value nil))))
+    (when (and (string-equal (buffer-name) poporg-edit-buffer-name)
+               (buffer-modified-p)
+               (not (yes-or-no-p "Really abandon this edit? ")))
+      (setq value nil))
     value))
 
 (defun poporg-kill-buffer-routine ()
