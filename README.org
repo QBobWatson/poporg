@@ -1,6 +1,5 @@
 #+TITLE: PopOrg — Editing program comments or strings with Org mode
 #+OPTIONS: H:2
-*This project is in alpha status.*
 ** Introduction
 PopOrg is a small Emacs Lisp project, to help editing program string or comments using Org mode.
 
@@ -17,15 +16,17 @@ To use PopOrg, you need to pick some unused keybinding and add a few lines to yo
 (global-set-key "\C-ceo" 'poporg-dwim)
 #+END_SRC
 ** Usage
-While editing a buffer containing a program, you may edit a comment block or a string (often a doc-string) in Org mode by placing the cursor within or nearby that comment or string, and calling =poporg-dwim= using you selected keybinding.  This pops another buffer in Org Mode (hence /PopOrg/ for the project name), containing the comment or string.  Once your edition is done, right in the popped up editing buffer, call =poporg-dwim= again to complete the edition.
+While editing a buffer containing a program, you may edit a comment block or a string (often a doc-string) in Org mode by placing the cursor within or nearby that comment or string, and calling =poporg-dwim= using you selected keybinding.  This pops another buffer in Org Mode (hence /PopOrg/ for the project name), containing the comment or string.  Once your edition is done, right in the popped up editing buffer, call =poporg-dwim= again to complete the edition, or merely kill that buffer to abandon the edition.
 
 More precisely, if the cursor is within a comment block or a string, this is what gets edited.  If the cursor is not within a comment block or a string, a comment or string following the cursor gets selected instead.  Otherwise, this is the comment or string which precedes the cursor which is selected for edition.
 
-While the comment or string is being copied in the editing buffer and until the edition is completed, the original comment or string in the original buffer is greyed out and protected against accidental modification.
+While the comment or string is being copied in the editing buffer and until the edition is completed, the original comment or string in the original buffer is greyed out and protected against accidental modification.  PopOrg asks for confirmation when the user attempts to kill an editing buffer which has modifications.  PopOrg also prevents the original buffer from being killed while there are pending PopOrg edits, the user should either complete or abandon those edits first.
 ** Known bugs
-- If characters are added before and after an intangible region being edited, the characters after the region are preserved, but the characters before the region are lost, while they should have been preserved.
-- One cannot edit more than one comment or string at a time.  Correction needs revising all FIXMEs in the code.
-- Also check for [[https://github.com/pinard/PopOrg/issues][issues on GitHub]], if any.
+- The protective measures against losing a pending edition do not work when the user plainly exits Emacs.
+- If characters are added immediately before or immediately after the region being edited, the characters after the region are preserved when the user completes its side edition, but the characters before the region are lost, while they should have been preserved.
+- Even if a region being edited is /intangible/ (meaning that the cursor cannot be pushed into it), it is not /read-only/ and could have its contents deleted by editing from either end of the region.  I suspect (without being sure) that this bug, and the preceding one, come from the fact overlays and text-properties do not behave the same.
+- One cannot edit more than one comment or string at a time, and most FIXMEs in the code relate to this problem.  Solving it requires that I get a firmer grasp of buffer-local variables, which apparently and mysteriously do not behave like I expect.
+- Also, maybe, check for [[https://github.com/pinard/PopOrg/issues][issues on GitHub]] if any.
 ** History
 PopOrg recycles a few ideas from two previous Emacs projects:
 
