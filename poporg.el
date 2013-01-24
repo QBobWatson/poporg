@@ -1,6 +1,6 @@
 ;;; poporg.el --- Pop a region in a separate buffer for Org editing
 
-;; Copyright  2013 Ubity inc.
+;; Copyright © 2013 Ubity inc.
 
 ;; Author: François Pinard
 
@@ -22,13 +22,6 @@
 ;; This pops a separate buffer for Org editing out of the contents of a comment,
 ;; then reinsert the modified comment in place once the edition is done.
 
-;;; Todo:
-
-;; - Prevent killing a main buffer with pending edits.
-;; - Killing an edit buffer should imply =(poporg-edit-abort)=.
-;; - While ending an edit, reveal all hidden text.
-;; - Revise all FIXMEs in the code, to allow for many edits at once.
-
 ;;; Code:
 
 ;; Variables which are only meant for popped up editing buffers.
@@ -38,6 +31,9 @@
   "Saved prefix, meant to be reapplied to all lines when the edit ends.")
 ;; FIXME (make-variable-buffer-local 'poporg-overlay)
 ;; FIXME (make-variable-buffer-local 'poporg-prefix)
+
+(defvar poporg-edit-buffer-name "*PopOrg*"
+  "Name of the transient edit buffer for PopOrg.")
 
 ;; In each buffer, list of dimming overlays for currently edited regions.
 (defvar poporg-overlays nil
@@ -64,7 +60,7 @@ Right now, only one edit is allowed at a time, and this variable is global.")
 Edit either the active region, the comment or string containing
 the cursor, after the cursor, else before the cursor.  Within a
 *PopOrg* edit buffer however, rather complete and exit the edit."
-  (cond ((string-equal (buffer-name) "*PopOrg*") (poporg-edit-exit))
+  (cond ((string-equal (buffer-name) poporg-edit-buffer-name) (poporg-edit-exit))
         ;; FIXME (and (boundp 'poporg-overlay) poporg-overlay) (poporg-edit-exit))
         ((use-region-p) (poporg-edit-region (region-beginning) (region-end)))
         ((poporg-dwim-1 (point)))
@@ -199,7 +195,7 @@ Point should be within a string.  The edition occurs in a separate buffer."
 A prefix common to all buffer lines, and to PREFIX as well, gets removed."
   (interactive "r")
   (when poporg-overlays
-    (pop-to-buffer "*PopOrg*")
+    (pop-to-buffer poporg-edit-buffer-name)
     (error "PopOrg already in use"))
   ;; Losely reduced out of PO mode's po-edit-string.
   (let ((start-marker (make-marker))
@@ -208,7 +204,7 @@ A prefix common to all buffer lines, and to PREFIX as well, gets removed."
     (set-marker end-marker end)
     (let ((buffer (current-buffer))
           ;; FIXME (edit-buffer (generate-new-buffer (concat "*" (buffer-name) "*")))
-          (edit-buffer "*PopOrg*")
+          (edit-buffer poporg-edit-buffer-name)
           (overlay (make-overlay start end))
           (string (buffer-substring start end)))
       ;; Dim and protect the original text.
