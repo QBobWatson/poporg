@@ -210,44 +210,32 @@ A prefix common to all buffer lines, and to PREFIX as well, gets removed."
       ;; Dim and protect the original text.
       (overlay-put overlay 'face 'poporg-edited-face)
       (overlay-put overlay 'intangible t)
-      (push overlay poporg-overlays)
-      ;; Initialize a popup edit buffer.
-      (pop-to-buffer edit-buffer)
-      ;; FIXME (make-local-variable 'poporg-overlay)
-      ;; FIXME (make-local-variable 'poporg-prefix)
-      (setq poporg-overlay overlay)
-      (insert string)
-      ;; Reduce prefix as needed.
-      (goto-char (point-min))
-      (while (not (eobp))
-        (setq prefix (or (fill-common-string-prefix
-                          prefix (poporg-current-line))
-                         ""))
-        (forward-line 1))
-      (setq poporg-prefix prefix)
-      ;; Remove common prefix.
-      (goto-char (point-min))
-      (while (not (eobp))
-        (delete-char (length prefix))
-        (forward-line 1))))
-  ;; Switch to Org mode.
-  (goto-char (point-min))
-  (org-mode))
-
-(defun poporg-edit-abort ()
-  "Exit the edit buffer, merely discarding its contents."
-  (interactive)
-  (let* ((edit-buffer (current-buffer))
-         (overlay poporg-overlay)
-         (buffer (overlay-buffer overlay)))
-    (if (null buffer)
-        (error "Corresponding buffer does not exist anymore")
-      (unless (one-window-p)
-        (delete-window))
-      (delete-overlay overlay)
-      (kill-buffer edit-buffer)
-      (setq poporg-overlays (delete overlay poporg-overlays))
-      )))
+      (overlay-put overlay 'read-only t)
+      (unless poporg-overlays
+        (push 'poporg-kill-buffer-query kill-buffer-query-functions)
+        (add-hook 'kill-buffer-hook 'poporg-kill-buffer-routine)
+        (push overlay poporg-overlays)
+        ;; Initialize a popup edit buffer.
+        (pop-to-buffer edit-buffer)
+        ;; FIXME (make-local-variable 'poporg-overlay)
+        ;; FIXME (make-local-variable 'poporg-prefix)
+        (insert string)
+        (goto-char (point-min))
+        (org-mode)
+        (setq poporg-overlay overlay)
+        ;; Reduce prefix as needed.
+        (goto-char (point-min))
+        (while (not (eobp))
+          (setq prefix (or (fill-common-string-prefix
+                            prefix (poporg-current-line))
+                           ""))
+          (forward-line 1))
+        (setq poporg-prefix prefix)
+        ;; Remove common prefix.
+        (goto-char (point-min))
+        (while (not (eobp))
+          (delete-char (length prefix))
+          (forward-line 1))))))
 
 (defun poporg-edit-exit ()
   "Exit the edit buffer, replacing the original region."
@@ -259,14 +247,20 @@ A prefix common to all buffer lines, and to PREFIX as well, gets removed."
       (insert poporg-prefix)
       (forward-line 1)))
   ;; Move everything back in place.
-  (let* ((string (buffer-string))
+  (let* ((edit-buffer (current-buffer))
          (overlay poporg-overlay)
-         (start (overlay-start overlay))
-         (end (overlay-end overlay)))
-    (poporg-edit-abort)
-    (goto-char start)
-    (delete-region start end)
-    (insert string)))
+         (buffer (overlay-buffer overlay)))
+    (when buffer
+      (let ((string (buffer-substring-no-properties (point-min) (point-max)))
+            (start (overlay-start overlay))
+            (end (overlay-end overlay)))
+        (with-current-buffer buffer
+          (goto-char start)
+          (delete-region start end)
+          (insert string)))
+      (unless (one-window-p)
+        (delete-window)))
+    (kill-buffer edit-buffer)))
 
 (defun poporg-find-span (faces)
   "Set START and END around point, extending over text having any of FACES.
@@ -308,6 +302,33 @@ START and END should be already bound within the caller."
         (when (= (following-char) ?\n)
           (forward-char)
           (skip-chars-forward " "))))))
+
+(defun poporg-kill-buffer-query ()
+  "Inhibit killing of a buffer with pending edits."
+  (let ((overlays poporg-overlays)
+        (value t))
+    (while overlays
+      (let* ((overlay (pop overlays))
+             (buffer (overlay-buffer overlay)))
+        (when (eq buffer (current-buffer))
+          (pop-to-buffer poporg-edit-buffer-name)
+          (message "First, either complete or kill this edit.")
+          (setq overlays nil
+                value nil))))
+    value))
+
+(defun poporg-kill-buffer-routine ()
+  "Cleanup an edit buffer whenever killed."
+  (when (string-equal (buffer-name) poporg-edit-buffer-name)
+    (let* ((overlay poporg-overlay)
+           (buffer (overlay-buffer overlay)))
+      (when buffer
+        (delete-overlay overlay)
+        (setq poporg-overlays (delete overlay poporg-overlays))
+        (unless poporg-overlays
+          (setq kill-buffer-query-functions
+                (delete 'poporg-kill-buffer-query kill-buffer-query-functions))
+          (remove-hook 'kill-buffer-hook 'poporg-kill-buffer-routine))))))
 
 (provide 'poporg)
   
