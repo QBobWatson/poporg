@@ -43,3 +43,26 @@ PopOrg recycles a few ideas from two previous Emacs projects:
 - my PO mode ([[http://git.savannah.gnu.org/cgit/gettext.git/tree/gettext-tools/misc/po-mode.el][source]] and [[http://www.gnu.org/software/gettext/manual/html_node/PO-Mode.html][documentation]]), for the idea of using separate buffers for edition.  For PO files, the need is quite clear: =msgstr= strings use escaping which is easy to get wrong, so the idea of a separate buffer is a way to remove that concern from the user, PO mode unquotes before presenting the string to the user, and requotes it once the editing is completed.  This was also solving the problem that =msgid= and =msgstr= fields, and the reminder of the PO file, could be using different character sets.
 
 - my Rebox tool ([[https://github.com/pinard/Pymacs/blob/master/contrib/rebox/rebox.el][source]] and [[https://github.com/pinard/Pymacs/blob/master/contrib/rebox/README][documentation]]), for finding the boundaries of block comments.  Originally in Emacs Lisp, this tool has later rewritten in Python at the time I was developing Pymacs, with a few minor improvements while doing so.  Le Wang, starting from my old Emacs Lisp, wrote a /much/ enhanced version ([[https://github.com/lewang/rebox2/blob/master/rebox2.el][source]] and [[http://youtube.googleapis.com/v/53YeTdVtDkU][video]]).  For PopOrg, however, the needs are modest, so it includes the old Emacs Lisp version.  See the very last section of the Rebox documentation for more historial context.
+** Other tools
+This project comes with the beginnings of a Python tool named =extradoc.py=, which has the purpose of extracting and processing the Org contents of a set of Python sources.  Maybe there could be other =extradoc.LANG= tools for similarly handling sources in other languages.
+*** Python extractor
+The =extradoc.py= tool presumes that all Org text is made up by concatenating the content of all sextuple-quoted strings (I mean triple double-quoted strings).  Moreover, prefixed strings are not recognized.  Here is its own documentation:
+
+#+BEGIN_EXAMPLE
+  Extract documentation from one or more Python sources.
+  Documentation lies in all unprefixed, sextuple-quoted strings.
+
+  Usage: extradoc.py [OPTION]... [SOURCE]...
+
+  Options:
+    -c PREFIX   Common prefix for all output files.
+    -h          Produce an HTML file, name will be PREFIX.html.
+    -o          Produce an Org file, name will be PREFIX.org.
+    -p          Produce a PDF file, name will be PREFIX.pdf.
+    -t          Produce a translation file, name will be PREFIX.pot.
+    -v          Be verbose and repeat all of Emacs output.
+
+  If no SOURCE are given, the program reads and process standard input.
+  Option -c is mandatory.  If -h or -p are used and -o is not, file PREFIX.org
+  should not pre-exist, as the program internally writes it and then deletes it.
+#+END_EXAMPLE
