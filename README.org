@@ -20,12 +20,14 @@ While editing a buffer containing a program, you may edit a comment block or a s
 
 More precisely, if the cursor is within a comment block or a string, this is what gets edited.  If the cursor is not within a comment block or a string, a comment or string following the cursor gets selected instead.  Otherwise, this is the comment or string which precedes the cursor which is selected for edition.
 
-While the comment or string is being copied in the editing buffer and until the edition is completed, the original comment or string in the original buffer is greyed out and protected against accidental modification.  PopOrg asks for confirmation when the user attempts to kill an editing buffer which has modifications.  PopOrg also prevents the original buffer from being killed while there are pending PopOrg edits, the user should either complete or abandon those edits first.
+While the comment or string is being copied in the editing buffer and until the edition is completed, the original comment or string in the original buffer is greyed out and protected against accidental modification.  PopOrg asks for confirmation when the user attempts to kill an editing buffer which has modifications.  PopOrg also prevents the original buffer from being killed while there are pending PopOrg edits, the user should either complete or abandon all those edits before killing the original buffer.
+
+Functions added to =poporg-edit-hook= are run once the PopOrg editing buffer has been set up with its contents, with the common prefix already removed, these functions may further modify the buffer contents.  Functions added to =poporg-edit-exit-hook= are run when PopOrg is about to reinstate the common prefix and move back the editing buffer contents into the original programming buffer, these functions may alter the contents as needed.  (I did not need these hooks, so let's talk if you need them to be defined differenty!)
 ** Known bugs
 - The protective measures against losing a pending edition do not work when the user plainly exits Emacs.
-- If characters are added immediately before or immediately after the region being edited, the characters after the region are preserved when the user completes its side edition, but the characters before the region are lost, while they should have been preserved.
+- If the cursor is located immediately before the opening delimiter of a string before =poporg-dwim=, some extraneous text to edit may be collected from before the cursor.
+- If characters are added immediately before or immediately after the region being edited, while the edition is pending, the characters after the region are preserved when the user completes its PopOrg edition, but the characters before the region are lost, while they should have been preserved.
 - Even if a region being edited is /intangible/ (meaning that the cursor cannot be pushed into it), it is not /read-only/ and could have its contents deleted by editing from either end of the region.  I suspect (without being sure) that this bug, and the preceding one, come from the fact overlays and text-properties do not behave the same.
-- One cannot edit more than one comment or string at a time, and most FIXMEs in the code relate to this problem.  Solving it requires that I get a firmer grasp of buffer-local variables, which apparently and mysteriously do not behave like I expect.
 - Also, maybe, check for [[https://github.com/pinard/PopOrg/issues][issues on GitHub]] if any.
 ** History
 PopOrg recycles a few ideas from two previous Emacs projects:
