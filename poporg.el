@@ -21,7 +21,7 @@
 
 ;; This pops a separate edit buffer in Org mode to edit the contents
 ;; of a comment or string, then reinserts the modified text in place
-;; once the edition is done.  See https://github.com/pinard/PopOrg.
+;; once the edition is done.  See https://github.com/pinard/poporg.
 
 ;;; Code:
 
@@ -54,10 +54,10 @@ them the original buffer.")
 
 (defun poporg-dwim ()
   (interactive)
-  "Single overall command for PopOrg (a single keybinding may do it all).
+  "Single overall command for poporg (a single keybinding may do it all).
 Edit either the active region, the comment or string containing
 the cursor, after the cursor, else before the cursor.  Within a
-*PopOrg* edit buffer however, rather complete and exit the edit."
+*poporg* edit buffer however, rather complete and exit the edit."
   (cond ((assq (current-buffer) poporg-data) (poporg-edit-exit))
         ((use-region-p) (poporg-edit-region (region-beginning) (region-end)))
         ((poporg-dwim-1 (point)))

@@ -1,4 +1,4 @@
 # Internal goals
 
-README.org: ~/fp/notes/pub/PopOrg.org
-	org-tool -g -p PopOrg.org >$@
+README.org: ~/fp/notes/pub/poporg.org
+	org-tool -g -p poporg.org >$@
