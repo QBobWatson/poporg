@@ -7,16 +7,28 @@ Documentation lies in all unprefixed, sextuple-quoted strings.
 Usage: extradoc.py [OPTION]... [SOURCE]...
 
 Options:
-  -c PREFIX   Common prefix for all output files.
-  -h          Produce an HTML file, name will be PREFIX.html.
-  -o          Produce an Org file, name will be PREFIX.org.
-  -p          Produce a PDF file, name will be PREFIX.pdf.
-  -t          Produce a translation file, name will be PREFIX.pot.
-  -v          Be verbose and repeat all of Emacs output.
+  -c PREFIX     Common prefix for all output files.
+  -s            Split output in directory PREFIX, obey #+FILE directives.
+  -h            Produce an HTML file, either PREFIX.html or PREFIX/NAME.html.
+  -o            Produce an Org file, either PREFIX.org or PREFIX/NAME.org.
+  -p            Produce a PDF file, either PREFIX.pdf or PREFIX/NAME.pdf.
+  -t            Produce a translation file, name will be PREFIX.pot.
+  -v            Be verbose and repeat all of Emacs output.
+  -D SYM        Define SYMbol as being True
+  -D SYM=EXPR   Define SYMbol with the value of EXPR.
 
 If no SOURCE are given, the program reads and process standard input.
 Option -c is mandatory.  If -h or -p are used and -o is not, file PREFIX.org
 should not pre-exist, as the program internally writes it and then deletes it.
+
+Some non-standard Org directives are recognized:
+  #+FILE: NAME.org   Switch output to NAME.org, also requires -s.
+  #+IF EXPR          Produce following lines only if EXPR is true, else skip.
+  #+ELIF EXPR        Expected meaning within an #+IF block.
+  #+ELSE             Expected meaning within an #+IF block.
+  #+ENDIF            Expected meaning to end an #+IF block.
+
+EXPRs above are Python expressions, eval context comes from -D options.
 """
 
 import os
@@ -27,6 +39,14 @@ import tokenize
 
 encoding = 'UTF-8'
 
+# State constants for #+IF processing.
+# - The current state is stacked when seeing an #+IF, and unstacked when seeing an #+ENDIF.
+# - If the state ever becomes SKIP in an #+IF, it remains that way until the matching #+ENDIF.
+# - If not SKIP, #+IF sets the state to either TRUE or FALSE.
+# - If not SKIP, #+ELIF sets the state to SKIP if it was TRUE, or to either TRUE or FALSE.
+# - If not SKIP, #ELSE sets the state to TRUE if FALSE, or to FALSE if TRUE.
+FALSE, TRUE, SKIP = range(3)
+
 
 class Main:
     prefix = None
@@ -34,22 +54,34 @@ class Main:
     org = False
     pdf = False
     pot = False
+    split = False
     verbose = False
 
     def main(self, *arguments):
 
         # Decode options.
+        self.context = Context()
         import getopt
-        options, arguments = getopt.getopt(arguments, 'c:hoptv')
+        options, arguments = getopt.getopt(arguments, 'D:c:hopstv')
         for option, value in options:
-            if option == '-c':
+            if option == '-D':
+                if '=' in value:
+                    sym, expr = value.split('=', 1)
+                    self.context[sym.strip()] = eval(value, None, self.context)
+                else:
+                    self.context[value.strip()] = True
+            elif option == '-c':
                 self.prefix = value
-            if option == '-h':
+            elif option == '-d':
+                self.split = True
+            elif option == '-h':
                 self.html = True
             elif option == '-o':
                 self.org = True
             elif option == '-p':
                 self.pdf = True
+            elif option == '-s':
+                self.split = True
             elif option == '-t':
                 self.pot = True
             elif option == '-v':
@@ -61,7 +93,9 @@ class Main:
             sys.exit("File %s.org exists and -o not specified." % self.prefix)
 
         # Prepare the work.
-        if self.html or self.org or self.pdf:
+        self.state = TRUE
+        self.stack = []
+        if not self.split and (self.html or self.org or self.pdf):
             self.org_file = open(self.prefix + '.org', 'w')
         else:
             self.org_file = None
@@ -77,46 +111,93 @@ class Main:
                 'MIME-Version': '1.0',
                 'Content-Type': 'text/plain; charset=utf-8',
                 'Content-Transfer-Encoding': '8bit',
-                }
+            }
 
         # Process all source files.
         if arguments:
             for argument in arguments:
-                self.extract_strings(file(argument), argument)
+                self.extract_org_fragments(open(argument), argument)
         else:
-            self.extract_strings(sys.stdin, '<stdin>')
+            self.extract_org_fragments(sys.stdin, '<stdin>')
 
         # Complete the work.
         if self.pot:
             self.po.save(self.prefix + '.pot')
         if self.org_file is not None:
             self.org_file.close()
-        if self.html:
-            self.launch_emacs('html')
-        if self.pdf:
-            self.launch_emacs('pdf')
-        if (self.html or self.pdf) and not self.org:
-            os.remove(self.prefix + '.org')
+        if not self.split:
+            if self.html:
+                self.launch_emacs([
+                    self.prefix + '.org',
+                    '--eval', '(setq org-export-allow-BIND t)',
+                    '--eval', '(org-export-as-html nil)'])
+            if self.pdf:
+                self.launch_emacs([
+                    self.prefix + '.org',
+                    '--eval', '(setq org-export-allow-BIND t)',
+                    '--eval', '(org-export-as-pdf nil)'])
+            if (self.html or self.pdf) and not self.org:
+                os.remove(self.prefix + '.org')
 
-    def extract_strings(self, file, name):
-        for (code, text, (line, column), _, _
+    def extract_org_fragments(self, file, name):
+        self.stack = []
+        self.state = TRUE
+        for line in self.each_org_line(file, name):
+            if line.startswith('#+FILE:'):
+                if self.split:
+                    if self.html or self.org or self.pdf:
+                        name = line[7:].strip()
+                        self.org_file = open(
+                            '%s/%s' % (self.prefix, name), 'w')
+            elif self.org_file is not None:
+                self.org_file.write(line + '\n')
+        if self.stack:
+            sys.stderr.write("%s: Some #+ENDIF might be missing.\n" % name)
+
+    def each_org_line(self, file, name):
+
+        def warn(diagnostic):
+            sys.stderr.write('%s:%s %s\n' % (name, line_no, diagnostic))
+
+        for (code, text, (line_no, _), _, _
              ) in tokenize.generate_tokens(file.readline):
             if code == tokenize.STRING:
                 if text.startswith('"""'):
                     text = text[3:-3].replace('\\\n', '')
-                    if self.org_file is not None:
-                        self.org_file.write(text)
                     if self.pot:
                         self.po.append(polib.POEntry(
                             msgid=text.decode(encoding),
-                            occurrences=[(name, str(line))]))
+                            occurrences=[(name, str(line_no))]))
+                    for line in text.splitlines():
+                        if line.startswith('#+IF '):
+                            self.stack.append(self.state)
+                            if self.state != SKIP:
+                                value = eval(line[5:], self.context)
+                                self.state = (FALSE, TRUE)[bool(value)]
+                        elif line.startswith('#+ELIF '):
+                            if self.state != SKIP:
+                                if self.state == TRUE:
+                                    self.state = SKIP
+                                else:
+                                    value = eval(line[7:], self.context)
+                                    self.state = (FALSE, TRUE)[bool(value)]
+                        elif line == '#+ELSE':
+                            if self.state != SKIP:
+                                self.state = (FALSE, TRUE)[self.state == FALSE]
+                        elif line == '#+ENDIF':
+                            if self.stack:
+                                self.state = self.stack.pop()
+                            else:
+                                warn("Spurious #+ENDIF line.")
+                        elif self.state == TRUE:
+                            if line.startswith('#+FILE:') and not self.split:
+                                warn("#+FILE directive, and not -s.")
+                            yield line
 
-    def launch_emacs(self, format):
+    def launch_emacs(self, args):
         import subprocess
         for raw in subprocess.Popen(
-                ['emacs', '--batch', self.prefix + '.org',
-                 '--eval', '(setq org-export-allow-BIND t)',
-                 '--eval', '(org-export-as-%s nil)' % format],
+                ['emacs', '--batch'] + args,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT).stdout:
             try:
@@ -146,10 +227,22 @@ class Main:
                         'HTML export done, ',
                         'Publishing file ',
                         'Resetting org-publish-cache',
-                        'Skipping unmodified file ',
-                        )):
+                        'Skipping unmodified file ')):
                     continue
             sys.stderr.write(line)
+
+
+class Context(dict):
+    "dict type which defaults to either builtin objects or False."
+
+    def __getitem__(self, key):
+        try:
+            return dict.__getitem__(self, key)
+        except KeyError:
+            try:
+                return getattr(__builtins__, key)
+            except AttributeError:
+                return False
 
 
 run = Main()
