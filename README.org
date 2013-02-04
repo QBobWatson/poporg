@@ -16,7 +16,7 @@ To use *poporg*, you need to pick some unused keybinding and add a few lines to 
 (global-set-key "\C-ceo" 'poporg-dwim)
 #+END_SRC
 ** Usage
-While editing a buffer containing a program, you may edit a comment block or a string (often a doc-string) in Org mode by placing the cursor within or nearby that comment or string, and calling =poporg-dwim= using you selected keybinding.  This pops another buffer in Org Mode (hence /*poporg*/ for the project name), containing the comment or string.  Once your edition is done, right in the popped up editing buffer, call =poporg-dwim= again to complete the edition, or merely kill that buffer to abandon the edition.
+While editing a buffer containing a program, you may edit a comment block or a string (often a doc-string) in Org mode by placing the cursor within or nearby that comment or string, and calling =poporg-dwim= using you selected keybinding.  This pops another buffer in Org Mode (hence the project name), containing the comment or string.  Once your edition is done, right in the popped up editing buffer, call =poporg-dwim= again to complete the edition, or merely kill that buffer to abandon the edition.
 
 More precisely, if the cursor is within a comment block or a string, this is what gets edited.  If the cursor is not within a comment block or a string, a comment or string following the cursor gets selected instead.  Otherwise, this is the comment or string which precedes the cursor which is selected for edition.
 
@@ -32,9 +32,9 @@ The following list is organized in decreasing order of approximative or subjecti
 - Ideally, the region being edited should be /read-only/ but not /intangible/, in that the cursor could be moved into it, from where a =poporg-dwim= command would popup the associated edit buffer.  This would be particularly useful when a user has many pending *poporg* edits.
 - It has been suggested, and rightly so, that =C-c C-c= would be a nice keybinding for completing a *poporg* edit.  The problem with this is that the edit buffer uses Org mode, where =C-c C-c= is overcrowded with many functionnalities already; some care would be needed to make sure this command, used with another intent, does not unexpectedly close the edition.
 ** Caveats
-- I do not much like to depend on Rebox, however, which is a complex piece of code compared to the reminder of *poporg*.  For comments, Rebox studies the file contents to guess comment delimiters and box styles, while for strings, *poporg* rather relies the syntax analysis previously made by the programming major mode, and expressed through faces.  These approaches are too different, maybe both are wrong anyway.  One advantage of using Rebox, however, is that it brings *poporg* closer to the capability of editing Org mode comments in complex boxing cases.
+- I do not much like that *poporg* depends on Rebox, which is a complex piece of code compared to the reminder of *poporg*.  For comments, Rebox studies the file contents to guess comment delimiters and box styles, while for strings, *poporg* rather relies the syntax analysis previously made by the programming major mode, and expressed through faces.  These approaches are too different, maybe both are wrong anyway.  One advantage of using Rebox, however, is that it brings *poporg* closer to the capability of editing Org mode comments in more cases of boxing.
 
-- Once the string and comment is back into the programming buffer, we loose Org mode highlighting and presentation details, which is unfortunate.  Multiple editing modes in Emacs are not able to properly highlight sections of a file according to the intended mode for each section: there is a single mode for the whole buffer in fact.  Org mode, on the other hand, has the virtue of properly highlighting the code snippets it contains, so surely, there is a way to do things properly, that might be understood and recycled, I'm not sure.
+- Once the string and comment is back into the programming buffer, we loose Org mode highlighting and presentation details, which is unfortunate.  Multiple editing modes in Emacs are not able to highlight sections of a file according to the intended mode for each section: there is a single mode for the whole buffer in fact.  Org mode, on the other hand, has the virtue of correctly highlighting the code snippets it contains, so surely, there is a way to do things as they should, that might be understood and recycled, I'm not sure.
 
 - *poporg* should ideally be accompanied by a set of conventions and some tools for proper extraction of an Org file out of program sources.
 ** History
@@ -49,20 +49,38 @@ This project comes with the beginnings of a Python tool named =extradoc.py=, whi
 The =extradoc.py= tool presumes that all Org text is made up by concatenating the content of all sextuple-quoted strings (I mean triple double-quoted strings).  Moreover, prefixed strings are not recognized.  Here is its own documentation:
 
 #+BEGIN_EXAMPLE
-  Extract documentation from one or more Python sources.
-  Documentation lies in all unprefixed, sextuple-quoted strings.
+Extract documentation from one or more Python sources.
+Documentation lies in all unprefixed, sextuple-quoted strings.
 
-  Usage: extradoc.py [OPTION]... [SOURCE]...
+Usage: extradoc.py [OPTION]... [SOURCE]...
 
-  Options:
-    -c PREFIX   Common prefix for all output files.
-    -h          Produce an HTML file, name will be PREFIX.html.
-    -o          Produce an Org file, name will be PREFIX.org.
-    -p          Produce a PDF file, name will be PREFIX.pdf.
-    -t          Produce a translation file, name will be PREFIX.pot.
-    -v          Be verbose and repeat all of Emacs output.
+Options:
+  -c PREFIX     Common prefix for all output files.
+  -s            Split output in directory PREFIX, obey #+FILE directives.
+  -h            Produce an HTML file, either PREFIX.html or PREFIX/NAME.html.
+  -o            Produce an Org file, either PREFIX.org or PREFIX/NAME.org.
+  -p            Produce a PDF file, either PREFIX.pdf or PREFIX/NAME.pdf.
+  -t            Produce a translation file, name will be PREFIX.pot.
+  -v            Be verbose and repeat all of Emacs output.
+  -D SYM        Define SYMbol as being True
+  -D SYM=EXPR   Define SYMbol with the value of EXPR.
+  -I TAGS       Only include sections having one of TAGS in their header.
+  -X TAGS       Exclude sections having one of TAGS in their header.
 
-  If no SOURCE are given, the program reads and process standard input.
-  Option -c is mandatory.  If -h or -p are used and -o is not, file PREFIX.org
-  should not pre-exist, as the program internally writes it and then deletes it.
+If no SOURCE are given, the program reads and process standard input.
+Option -c is mandatory.  If -h or -p are used and -o is not, file PREFIX.org
+should not pre-exist, as the program internally writes it and then deletes it.
+
+Some non-standard Org directives are recognized:
+  #+FILE: NAME.org   Switch output to NAME.org, also requires -s.
+  #+IF EXPR          Produce following lines only if EXPR is true, else skip.
+  #+ELIF EXPR        Expected meaning within an #+IF block.
+  #+ELSE             Expected meaning within an #+IF block.
+  #+ENDIF            Expected meaning to end an #+IF block.
+
+EXPRs above are Python expressions, eval context comes from -D options.
+TAGS represents a comma-separated list of Org tags.  To get through, a line
+should go through the #+IF system, not be within an excluded section, and if
+any included sections is specified, then either be part of one of them or
+within the introduction (that is, before the first header).
 #+END_EXAMPLE

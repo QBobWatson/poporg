@@ -16,6 +16,8 @@ Options:
   -v            Be verbose and repeat all of Emacs output.
   -D SYM        Define SYMbol as being True
   -D SYM=EXPR   Define SYMbol with the value of EXPR.
+  -I TAGS       Only include sections having one of TAGS in their header.
+  -X TAGS       Exclude sections having one of TAGS in their header.
 
 If no SOURCE are given, the program reads and process standard input.
 Option -c is mandatory.  If -h or -p are used and -o is not, file PREFIX.org
@@ -29,6 +31,10 @@ Some non-standard Org directives are recognized:
   #+ENDIF            Expected meaning to end an #+IF block.
 
 EXPRs above are Python expressions, eval context comes from -D options.
+TAGS represents a comma-separated list of Org tags.  To get through, a line
+should go through the #+IF system, not be within an excluded section, and if
+any included sections is specified, then either be part of one of them or
+within the introduction (that is, before the first header).
 """
 
 import os
@@ -56,13 +62,15 @@ class Main:
     pot = False
     split = False
     verbose = False
+    included = set()
+    excluded = set()
 
     def main(self, *arguments):
 
         # Decode options.
         self.context = Context()
         import getopt
-        options, arguments = getopt.getopt(arguments, 'D:c:hopstv')
+        options, arguments = getopt.getopt(arguments, 'D:I:X:c:hopstv')
         for option, value in options:
             if option == '-D':
                 if '=' in value:
@@ -70,6 +78,10 @@ class Main:
                     self.context[sym.strip()] = eval(value, None, self.context)
                 else:
                     self.context[value.strip()] = True
+            elif option == '-I':
+                self.included = set(tag.strip() for tag in value.split(','))
+            elif option == '-X':
+                self.excluded = set(tag.strip() for tag in value.split(','))
             elif option == '-c':
                 self.prefix = value
             elif option == '-d':
@@ -93,8 +105,8 @@ class Main:
             sys.exit("File %s.org exists and -o not specified." % self.prefix)
 
         # Prepare the work.
-        self.state = TRUE
         self.stack = []
+        self.state = TRUE
         if not self.split and (self.html or self.org or self.pdf):
             self.org_file = open(self.prefix + '.org', 'w')
         else:
@@ -140,6 +152,8 @@ class Main:
                 os.remove(self.prefix + '.org')
 
     def extract_org_fragments(self, file, name):
+        # LEVEL not None means inhibit copy from that header level on.
+        level = None
         self.stack = []
         self.state = TRUE
         for line in self.each_org_line(file, name):
@@ -149,12 +163,32 @@ class Main:
                         name = line[7:].strip()
                         self.org_file = open(
                             '%s/%s' % (self.prefix, name), 'w')
-            elif self.org_file is not None:
+                level = None
+                continue
+            if line.startswith('*'):
+                match = re.match('^(\\*+).*?((:[a-z]+)+:)?$', line)
+                if match:
+                    here_level = len(match.group(1))
+                    if level is None or here_level <= level:
+                        if match.group(2):
+                            tags = set(match.group(2).strip(':').split(':'))
+                        else:
+                            tags = set()
+                        if tags & self.excluded:
+                            level = here_level
+                        elif self.included and not (tags & self.included):
+                            level = here_level
+                        else:
+                            level = None
+            if level is None and self.org_file is not None:
                 self.org_file.write(line + '\n')
         if self.stack:
             sys.stderr.write("%s: Some #+ENDIF might be missing.\n" % name)
 
     def each_org_line(self, file, name):
+
+        def if_bool(value):
+            return (FALSE, TRUE)[bool(value)]
 
         def warn(diagnostic):
             sys.stderr.write('%s:%s %s\n' % (name, line_no, diagnostic))
@@ -173,17 +207,17 @@ class Main:
                             self.stack.append(self.state)
                             if self.state != SKIP:
                                 value = eval(line[5:], self.context)
-                                self.state = (FALSE, TRUE)[bool(value)]
+                                self.state = if_bool(value)
                         elif line.startswith('#+ELIF '):
                             if self.state != SKIP:
                                 if self.state == TRUE:
                                     self.state = SKIP
                                 else:
                                     value = eval(line[7:], self.context)
-                                    self.state = (FALSE, TRUE)[bool(value)]
+                                    self.state = if_bool(value)
                         elif line == '#+ELSE':
                             if self.state != SKIP:
-                                self.state = (FALSE, TRUE)[self.state == FALSE]
+                                self.state = if_bool(self.state == FALSE)
                         elif line == '#+ENDIF':
                             if self.stack:
                                 self.state = self.stack.pop()
