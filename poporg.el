@@ -46,6 +46,21 @@ them the original buffer.")
      (:foreground "gray")))
   "Face for a region while it is being edited.")
 
+(defun poporg-check-already-edited ()
+  "Check if point is within an already edited region.
+If yes, pop the editing buffer and return t."
+  (let ((data poporg-data)
+        found)
+    (while (and data (not found))
+      (let* ((triplet (pop data))
+             (overlay (cadr triplet)))
+        (when (and (eq (overlay-buffer overlay) (current-buffer))
+                   (<= (overlay-start overlay) (point))
+                   (>= (overlay-end overlay) (point)))
+          (pop-to-buffer (car triplet))
+          (setq found t))))
+    found))
+
 (defun poporg-current-line ()
   "Return the contents of the line where the point is."
   (buffer-substring-no-properties
@@ -60,6 +75,7 @@ the cursor, after the cursor, else before the cursor.  Within a
 *poporg* edit buffer however, rather complete and exit the edit."
   (cond ((assq (current-buffer) poporg-data) (poporg-edit-exit))
         ((use-region-p) (poporg-edit-region (region-beginning) (region-end)))
+        ((poporg-check-already-edited))
         ((poporg-dwim-1 (point)))
         ((poporg-dwim-1
           (let ((location (next-single-property-change (point) 'face)))
