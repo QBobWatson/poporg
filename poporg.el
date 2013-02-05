@@ -138,17 +138,33 @@ Point should be within a comment.  The edition occurs in a separate buffer."
 Point should be within a string.  The edition occurs in a separate buffer."
   ;; FIXME: This is experimental.
   (let (start end prefix)
+    ;; If Python, presume the string is sextuple-quoted.
+    (when (eq major-mode 'python-mode)
+      (save-excursion
+        (setq end (search-forward "\"\"\"" nil t))
+        (when end
+          (setq end (- end 3))))
+      (save-excursion
+        (setq start (search-backward "\"\"\"" nil t))
+        (when start
+          (forward-char 3)
+          (skip-chars-forward "\\\\\n")
+          (setq start (point)))))
     ;; Set END.
-    (goto-char (or (next-single-property-change location 'face)
-                   (point-max)))
-    (skip-chars-backward "\"'\\\n")
+    (if end
+        (goto-char end)
+      (goto-char (or (next-single-property-change location 'face)
+                     (point-max)))
+      (skip-chars-backward "\"'\\\n"))
     (when (looking-at "\n")
       (forward-char))
     (setq end (point))
     ;; Set START.
-    (goto-char (or (previous-single-property-change location 'face)
-                   (point-min)))
-    (skip-chars-forward "\"'\\\\\n")
+    (if start
+        (goto-char start)
+      (goto-char (or (previous-single-property-change location 'face)
+                     (point-min)))
+      (skip-chars-forward "\"'\\\\\n"))
     (setq start (point))
     ;; Set PREFIX.
     (skip-chars-forward " ")
