@@ -45,12 +45,15 @@ import tokenize
 
 encoding = 'UTF-8'
 
-# State constants for #+IF processing.
-# - The current state is stacked when seeing an #+IF, and unstacked when seeing an #+ENDIF.
-# - If the state ever becomes SKIP in an #+IF, it remains that way until the matching #+ENDIF.
-# - If not SKIP, #+IF sets the state to either TRUE or FALSE.
-# - If not SKIP, #+ELIF sets the state to SKIP if it was TRUE, or to either TRUE or FALSE.
-# - If not SKIP, #ELSE sets the state to TRUE if FALSE, or to FALSE if TRUE.
+# Within an #+IF [#+ELIF]... [#+ELSE] #+ENDIF structure, the state may
+# vary between FALSE, TRUE and SKIP.  The state before the structure is
+# saved on entry, and restored on exit.  The state is TRUE at the
+# beginning of a file.  If the state before stacking was TRUE, it starts
+# as FALSE within the structure; otherwise, the state starts as SKIP.
+# States may only go from FALSE to any other state; or else, necessarily
+# to SKIP.  Within a structure, the state can be TRUE at most once,
+# indicating that the tested condition was true.  It can be FALSE
+# earlier in the structure, and may only be SKIP after the TRUE segment.
 FALSE, TRUE, SKIP = range(3)
 
 
@@ -105,8 +108,6 @@ class Main:
             sys.exit("File %s.org exists and -o not specified." % self.prefix)
 
         # Prepare the work.
-        self.stack = []
-        self.state = TRUE
         if not self.split and (self.html or self.org or self.pdf):
             self.org_file = open(self.prefix + '.org', 'w')
         else:
@@ -154,8 +155,6 @@ class Main:
     def extract_org_fragments(self, file, name):
         # LEVEL not None means inhibit copy from that header level on.
         level = None
-        self.stack = []
-        self.state = TRUE
         for line in self.each_org_line(file, name):
             if line.startswith('#+FILE:'):
                 if self.split:
@@ -182,8 +181,6 @@ class Main:
                             level = None
             if level is None and self.org_file is not None:
                 self.org_file.write(line + '\n')
-        if self.stack:
-            sys.stderr.write("%s: Some #+ENDIF might be missing.\n" % name)
 
     def each_org_line(self, file, name):
 
@@ -193,6 +190,8 @@ class Main:
         def warn(diagnostic):
             sys.stderr.write('%s:%s %s\n' % (name, line_no, diagnostic))
 
+        self.stack = []
+        self.state = TRUE
         for (code, text, (line_no, _), _, _
              ) in tokenize.generate_tokens(file.readline):
             if code == tokenize.STRING:
@@ -205,19 +204,22 @@ class Main:
                     for line in text.splitlines():
                         if line.startswith('#+IF '):
                             self.stack.append(self.state)
-                            if self.state != SKIP:
+                            if self.state == TRUE:
                                 value = eval(line[5:], self.context)
                                 self.state = if_bool(value)
+                            else:
+                                self.state = SKIP
                         elif line.startswith('#+ELIF '):
-                            if self.state != SKIP:
-                                if self.state == TRUE:
-                                    self.state = SKIP
-                                else:
-                                    value = eval(line[7:], self.context)
-                                    self.state = if_bool(value)
+                            if self.state == FALSE:
+                                value = eval(line[7:], self.context)
+                                self.state = if_bool(value)
+                            else:
+                                self.state = SKIP
                         elif line == '#+ELSE':
-                            if self.state != SKIP:
-                                self.state = if_bool(self.state == FALSE)
+                            if self.state == FALSE:
+                                self.state = TRUE
+                            else:
+                                self.state = SKIP
                         elif line == '#+ENDIF':
                             if self.stack:
                                 self.state = self.stack.pop()
@@ -227,6 +229,8 @@ class Main:
                             if line.startswith('#+FILE:') and not self.split:
                                 warn("#+FILE directive, and not -s.")
                             yield line
+        if self.stack:
+            sys.stderr.write("%s: Some #+ENDIF might be missing.\n" % name)
 
     def launch_emacs(self, args):
         import subprocess
