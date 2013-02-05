@@ -271,29 +271,30 @@ A prefix common to all buffer lines, and to PREFIX as well, gets removed."
          (overlay (cadr triplet))
          (buffer (overlay-buffer overlay))
          (prefix (caddr triplet)))
-    (if (not buffer)
-        (error "Original buffer vanished")
-      (run-hooks 'poporg-edit-exit-hook)
-      (when (buffer-modified-p)
-        ;; Reinsert the prefix.
-        (goto-char (point-min))
-        (while (not (eobp))
-          (insert prefix)
-          (forward-line 1))
-        ;; Move everything back in place.
-        (let ((string (buffer-substring-no-properties (point-min) (point-max)))
-              (start (overlay-start overlay))
-              (end (overlay-end overlay)))
-          (with-current-buffer buffer
-            (goto-char start)
-            (delete-region start end)
-            (insert string))
-          (set-buffer-modified-p nil)))
-      (unless (one-window-p)
-        (delete-window)))
-  ;; Killing the buffer triggers a cleanup through the kill hook.
-  ;; EDIT-BUFFER is given explicitly as DELETE-WINDOW changed things.
-  (kill-buffer edit-buffer)))
+    (unless buffer
+      (error "Original buffer vanished"))
+    (run-hooks 'poporg-edit-exit-hook)
+    (when (buffer-modified-p)
+      ;; Reinsert the prefix.
+      (goto-char (point-min))
+      (while (not (eobp))
+        (insert prefix)
+        (forward-line 1))
+      ;; Move everything back in place.
+      (let ((string (buffer-substring-no-properties (point-min) (point-max)))
+            (start (overlay-start overlay))
+            (end (overlay-end overlay)))
+        (with-current-buffer buffer
+          (goto-char start)
+          (delete-region start end)
+          (insert string))
+        (set-buffer-modified-p nil)))
+    (unless (one-window-p)
+      (delete-window))
+    (switch-to-buffer buffer)
+    (goto-char (overlay-start overlay))
+    ;; Killing the buffer triggers a cleanup through the kill hook.
+    (kill-buffer edit-buffer)))
 
 (defun poporg-find-span (faces)
   "Set START and END around point, extending over text having any of FACES.
