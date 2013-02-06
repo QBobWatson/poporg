@@ -117,15 +117,16 @@ Point should be within a comment.  The edition occurs in a separate buffer."
     (setq start (point-min)
           end (point-max))
     (widen)
-    (goto-char start)
-    (skip-chars-backward " ")
-    (setq start (point))
-    ;; Set PREFIX.
-    (skip-chars-forward " ")
-    (skip-chars-forward comment-start)
-    (skip-chars-forward " ")
-    (setq prefix (buffer-substring-no-properties start (point))
-          prefix-regexp (regexp-quote prefix))
+    (save-excursion
+      (goto-char start)
+      (skip-chars-backward " ")
+      (setq start (point))
+      ;; Set PREFIX.
+      (skip-chars-forward " ")
+      (skip-chars-forward comment-start)
+      (skip-chars-forward " ")
+      (setq prefix (buffer-substring-no-properties start (point))
+            prefix-regexp (regexp-quote prefix)))
     ;; Edit our extended comment.
     (poporg-edit-region start end prefix)))
 
@@ -166,25 +167,26 @@ Point should be within a string.  The edition occurs in a separate buffer."
           (forward-char 3)
           (skip-chars-forward "\\\\\n")
           (setq start (point)))))
-    ;; Set END.
-    (if end
-        (goto-char end)
-      (goto-char (or (next-single-property-change location 'face)
-                     (point-max)))
-      (skip-chars-backward "\"'\\\n"))
-    (when (looking-at "\n")
-      (forward-char))
-    (setq end (point))
-    ;; Set START.
-    (if start
-        (goto-char start)
-      (goto-char (or (previous-single-property-change location 'face)
-                     (point-min)))
-      (skip-chars-forward "\"'\\\\\n"))
-    (setq start (point))
-    ;; Set PREFIX.
-    (skip-chars-forward " ")
-    (setq prefix (buffer-substring-no-properties start (point)))
+    (save-excursion
+      ;; Set END.
+      (if end
+          (goto-char end)
+        (goto-char (or (next-single-property-change location 'face)
+                       (point-max)))
+        (skip-chars-backward "\"'\\\n"))
+      (when (looking-at "\n")
+        (forward-char))
+      (setq end (point))
+      ;; Set START.
+      (if start
+          (goto-char start)
+        (goto-char (or (previous-single-property-change location 'face)
+                       (point-min)))
+        (skip-chars-forward "\"'\\\\\n"))
+      (setq start (point))
+      ;; Set PREFIX.
+      (skip-chars-forward " ")
+      (setq prefix (buffer-substring-no-properties start (point))))
     ;; Edit our string.
     (poporg-edit-region start end prefix)))
 
@@ -231,7 +233,10 @@ A prefix common to all buffer lines, and to PREFIX as well, gets removed."
     (let ((buffer (current-buffer))
           (edit-buffer (generate-new-buffer (concat "*" (buffer-name) "*")))
           (overlay (make-overlay start end))
-          (string (buffer-substring start end)))
+          (string (buffer-substring start end))
+          (location (cond ((< (point) start) 0)
+                          ((> (point) end) (- end start))
+                          (t (- (point) start)))))
       ;; Dim and protect the original text.
       (overlay-put overlay 'face 'poporg-edited-face)
       (overlay-put overlay 'intangible t)
@@ -239,28 +244,28 @@ A prefix common to all buffer lines, and to PREFIX as well, gets removed."
       ;; Initialize a popup edit buffer.
       (pop-to-buffer edit-buffer)
       (insert string)
-      (goto-char (point-min))
+      (goto-char (+ (point-min) location))
       (org-mode)
-      ;; Reduce prefix as needed.
-      (goto-char (point-min))
-      (while (not (eobp))
-        (setq prefix (or (fill-common-string-prefix
-                          prefix (poporg-current-line))
-                         ""))
-        (forward-line 1))
-      ;; Remove common prefix.
-      (goto-char (point-min))
-      (while (not (eobp))
-        (delete-char (length prefix))
-        (forward-line 1))
-      (set-buffer-modified-p nil)
-      ;; Save data and possibly activate hooks. 
-      (unless poporg-data
-        (push 'poporg-kill-buffer-query kill-buffer-query-functions)
-        (add-hook 'kill-buffer-hook 'poporg-kill-buffer-routine))
-      (push (list edit-buffer overlay prefix) poporg-data)
+      (save-excursion
+        ;; Reduce prefix as needed.
+        (goto-char (point-min))
+        (while (not (eobp))
+          (setq prefix (or (fill-common-string-prefix
+                            prefix (poporg-current-line))
+                           ""))
+          (forward-line 1))
+        ;; Remove common prefix.
+        (goto-char (point-min))
+        (while (not (eobp))
+          (delete-char (length prefix))
+          (forward-line 1))
+        (set-buffer-modified-p nil)
+        ;; Save data and possibly activate hooks. 
+        (unless poporg-data
+          (push 'poporg-kill-buffer-query kill-buffer-query-functions)
+          (add-hook 'kill-buffer-hook 'poporg-kill-buffer-routine))
+        (push (list edit-buffer overlay prefix) poporg-data))
       ;; All set up for edition.
-      (goto-char (point-min))
       (run-hooks 'poporg-edit-hook))))
 
 (defun poporg-edit-exit ()
