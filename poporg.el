@@ -275,16 +275,20 @@ A prefix common to all buffer lines, and to PREFIX as well, gets removed."
          (triplet (assq edit-buffer poporg-data))
          (overlay (cadr triplet))
          (buffer (overlay-buffer overlay))
-         (prefix (caddr triplet)))
+         (prefix (caddr triplet))
+         location)
     (unless buffer
       (error "Original buffer vanished"))
     (run-hooks 'poporg-edit-exit-hook)
-    (when (buffer-modified-p)
-      ;; Reinsert the prefix.
+    ;; Reinsert the prefix, even if the buffer is not modified: this
+    ;; allows for accurately computing the relative position of point. 
+    (save-excursion
       (goto-char (point-min))
       (while (not (eobp))
         (insert prefix)
-        (forward-line 1))
+        (forward-line 1)))
+    (setq location (- (point) (point-min)))
+    (when (buffer-modified-p)
       ;; Move everything back in place.
       (let ((string (buffer-substring-no-properties (point-min) (point-max)))
             (start (overlay-start overlay))
@@ -297,7 +301,8 @@ A prefix common to all buffer lines, and to PREFIX as well, gets removed."
     (unless (one-window-p)
       (delete-window))
     (switch-to-buffer buffer)
-    (goto-char (overlay-start overlay))
+    (let ((inhibit-point-motion-hooks t))
+      (goto-char (+ (overlay-start overlay) location)))
     ;; Killing the buffer triggers a cleanup through the kill hook.
     (kill-buffer edit-buffer)))
 
