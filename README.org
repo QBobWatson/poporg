@@ -177,9 +177,9 @@ Org also has the following globally available commands:
 **** PEP8 validation
 The width of Org links often triggers the line length limit check of
 the *pep8* program, which gets annoying when one uses *flymake* to get
-real-time feedback while writing.  To silence these, I forked another
-[[https://github.com/pinard/pep8][pep8 distribution]] from the original one, and containing only a very
-tiny patch over the [[https://github.com/jcrocholl/pep8][official one]].
+real-time feedback while writing.  To silence these, I took advantage
+of this [[https://gist.github.com/florentx/5024445/177f224f90d176365a2ecac2844875212d15c7ed][nice workaround]], installing a *pep8* replacement program, and
+managed so *flymake* uses that replacement program instead of *pep8*.
 **** Extractor for Python
 The =extradoc.py= tool in this *poporg* project has the purpose of
 extracting and processing the Org contents of a set of Python sources.
