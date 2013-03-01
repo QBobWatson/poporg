@@ -71,7 +71,8 @@ Edit either the active region, the comment or string containing
 the cursor, after the cursor, else before the cursor.  Within a
 *poporg* edit buffer however, rather complete and exit the edit."
   (cond ((assq (current-buffer) poporg-data) (poporg-edit-exit))
-        ((use-region-p) (poporg-edit-region (region-beginning) (region-end)))
+        ((use-region-p)
+         (poporg-edit-region (region-beginning) (region-end) ""))
         ((poporg-check-already-edited))
         ((poporg-dwim-1 (point)))
         ((poporg-dwim-1
