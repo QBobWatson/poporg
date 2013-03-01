@@ -64,12 +64,6 @@ If yes, pop the editing buffer and return t."
           (setq found t))))
     found))
 
-(defun poporg-current-line ()
-  "Return the contents of the line where the point is."
-  (buffer-substring-no-properties
-   (save-excursion (beginning-of-line) (point))
-   (save-excursion (end-of-line) (point))))
-
 (defun poporg-dwim ()
   (interactive)
   "Single overall command for poporg (a single keybinding may do it all).
@@ -253,9 +247,12 @@ A prefix common to all buffer lines, and to PREFIX as well, gets removed."
         ;; Reduce prefix as needed.
         (goto-char (point-min))
         (while (not (eobp))
-          (setq prefix (or (fill-common-string-prefix
-                            prefix (poporg-current-line))
-                           ""))
+          (setq prefix
+                (or (fill-common-string-prefix
+                     prefix
+                     (buffer-substring-no-properties (line-beginning-position)
+                                                     (line-end-position)))
+                    ""))
           (forward-line 1))
         ;; Remove common prefix.
         (goto-char (point-min))
