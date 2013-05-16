@@ -29,8 +29,8 @@ lines to your =~/.emacs= file.  For one, I picked =C-c e o= and added
 these lines:
 
 #+BEGIN_SRC sh
-(autoload 'poporg-dwim "poporg" nil t)
-(global-set-key "\C-ceo" 'poporg-dwim)
+  (autoload 'poporg-dwim "poporg" nil t)
+  (global-set-key "\C-ceo" 'poporg-dwim)
 #+END_SRC
 ** Usage
 While editing a buffer containing a program, you may edit a comment
