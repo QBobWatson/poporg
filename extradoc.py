@@ -37,6 +37,7 @@ any included sections is specified, then either be part of one of them or
 within the introduction (that is, before the first header).
 """
 
+import codecs
 import os
 import polib
 import re
@@ -109,7 +110,7 @@ class Main:
 
         # Prepare the work.
         if not self.split and (self.html or self.org or self.pdf):
-            self.org_file = open(self.prefix + '.org', 'w')
+            self.org_file = codecs.open(self.prefix + '.org', 'w', encoding)
         else:
             self.org_file = None
         if self.pot:
@@ -122,14 +123,16 @@ class Main:
                 'Last-Translator': 'you <you@example.com>',
                 'Language-Team': 'English <yourteam@example.com>',
                 'MIME-Version': '1.0',
-                'Content-Type': 'text/plain; charset=utf-8',
+                'Content-Type': 'text/plain; charset=%s' % encoding,
                 'Content-Transfer-Encoding': '8bit',
             }
 
         # Process all source files.
         if arguments:
             for argument in arguments:
-                self.extract_org_fragments(open(argument), argument)
+                self.extract_org_fragments(
+                    codecs.open(argument, 'r', encoding),
+                    argument)
         else:
             self.extract_org_fragments(sys.stdin, '<stdin>')
 
@@ -160,8 +163,8 @@ class Main:
                 if self.split:
                     if self.html or self.org or self.pdf:
                         name = line[7:].strip()
-                        self.org_file = open(
-                            '%s/%s' % (self.prefix, name), 'w')
+                        self.org_file = codecs.open(
+                            '%s/%s' % (self.prefix, name), 'w', encoding)
                 level = None
                 continue
             if line.startswith('*'):
@@ -199,7 +202,7 @@ class Main:
                     text = text[3:-3].replace('\\\n', '')
                     if self.pot:
                         self.po.append(polib.POEntry(
-                            msgid=text.decode(encoding),
+                            msgid=text,
                             occurrences=[(name, str(line_no))]))
                     for line in text.splitlines():
                         if line.startswith('#+IF '):
