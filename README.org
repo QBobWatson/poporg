@@ -1,6 +1,8 @@
 #+TITLE: poporg — Editing program comments or strings with Org mode
 #+OPTIONS: H:2
+
 ** Introduction
+
 *poporg* is a small Emacs Lisp project, to help editing program string
 or comments using Org mode.
 
@@ -19,7 +21,9 @@ Org mode, but containing only that block comment or that string.  Once
 the edit is completed, the modified comment or string gets
 re-integrated in the buffer containing the program, replacing the
 original contents.
+
 ** Installation
+
 To install *poporg*, move files =poporg.el= and =rebox.el= at a place
 where Emacs will find them.  You might byte-compile the files if you
 want.
@@ -32,7 +36,9 @@ these lines:
   (autoload 'poporg-dwim "poporg" nil t)
   (global-set-key "\C-ceo" 'poporg-dwim)
 #+END_SRC
+
 ** Usage
+
 While editing a buffer containing a program, you may edit a comment
 block or a string (often a doc-string) in Org mode by placing the
 cursor within or nearby that comment or string, and calling
@@ -70,10 +76,13 @@ when *poporg* is about to reinstate the common prefix and move back the
 editing buffer contents into the original programming buffer, these
 functions may alter the contents as needed.  (I did not need these
 hooks, so let's talk if you need them to be defined differenty!)
+
 ** Known bugs
+
 The following list is organized in decreasing order of approximative
 or subjective priority.  You may also check if there are any [[https://github.com/pinard/poporg/issues][issues on
 GitHub]].
+
 - If the cursor is located immediately before the opening delimiter of
   a string before =poporg-dwim=, some extraneous text to edit may be
   collected from before the cursor.
@@ -101,7 +110,9 @@ GitHub]].
   with many functionnalities already; some care would be needed to
   make sure this command, used with another intent, does not
   unexpectedly close the edition.
+
 ** Caveats
+
 - I do not much like that *poporg* depends on Rebox, which is a
   complex piece of code compared to the reminder of *poporg*.  For
   comments, Rebox studies the file contents to guess comment
@@ -128,7 +139,9 @@ GitHub]].
   some tools for proper extraction of an Org file out of program
   sources.  One is already provided for Python, it would be nice to
   also have some support for other languages.
+
 ** History
+
 *poporg* recycles a few ideas from two previous Emacs projects:
 
 - my PO mode ([[http://git.savannah.gnu.org/cgit/gettext.git/tree/gettext-tools/misc/po-mode.el][source]] and [[http://www.gnu.org/software/gettext/manual/html_node/PO-Mode.html][documentation]]), for the idea of using
@@ -148,7 +161,9 @@ GitHub]].
   For *poporg*, however, the needs are modest, so it includes the old
   Emacs Lisp version.  See the very last section of the Rebox
   documentation for more historial context.
+
 ** Other tools
+
 Major programming modes show comments and strings in full, and when
 these comments or strings are written using Org, with all parts of a
 link visible, it may be disruptive to those sensible to line width
@@ -173,13 +188,16 @@ Org also has the following globally available commands:
   | *org-insert-link-global*   | =C-c L=            |
   | *org open-at-point-global* | =C-c O=            |
   |--------------------------+------------------|
+
 ** Python
+
 **** PEP8 validation
 The width of Org links often triggers the line length limit check of
 the *pep8* program, which gets annoying when one uses *flymake* to get
 real-time feedback while writing.  To silence these, I took advantage
 of this [[https://gist.github.com/florentx/5024445][nice workaround]], installing a *pep8* replacement program, and
 managed so *flymake* uses that replacement program instead of *pep8*.
+
 **** Extractor for Python
 The =extradoc.py= tool in this *poporg* project has the purpose of
 extracting and processing the Org contents of a set of Python sources.
