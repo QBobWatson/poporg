@@ -118,3 +118,11 @@ Org also has the following globally available commands:
   | *org-insert-link-global*   | =C-c L=            |
   | *org open-at-point-global* | =C-c O=            |
   |--------------------------+------------------|
+
+*** Extractor for Python
+The =extradoc.py= tool in this *poporg* project has the purpose of extracting and
+processing the Org contents of a set of Python sources.  I used the =.py= suffix
+just in case there could be other =extradoc.LANG= tools for similarly handling
+sources in other languages.  This =extradoc.py= tool presumes that all Org text is
+made up by concatenating the content of all sextuple-quoted strings (I mean
+triple double-quoted strings).  Moreover, prefixed strings are not recognized.
