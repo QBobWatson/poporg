@@ -4,8 +4,10 @@
 ;; Copyright © 2013 Ubity inc.
 
 ;; Author: François Pinard <pinard@iro.umontreal.ca>
-;; Contributor: Joseph Rabinoff <rabinoff@post.harvard.edu>
+;;      Joseph Rabinoff <rabinoff@post.harvard.edu>
 ;; Maintainer: Joseph Rabinoff <rabinoff@post.harvard.edu>
+;; Version: 0.9
+;; Keywords: outlines, tools
 ;; URL: https://github.com/QBobWatson/poporg
 
 ;; This program is free software: you can redistribute it and/or modify it under
@@ -23,7 +25,8 @@
 
 ;;; Commentary:
 
-;; See README.org included with this package.
+;; See the README.org file located at https://github.com/QBobWatson/poporg for
+;; package usage information.
 
 ;;; Code:
 
