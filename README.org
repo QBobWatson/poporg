@@ -3,9 +3,9 @@
 
 ** Introduction
 
-*poporg* is a small Emacs lisp project to help editing program strings and
+*poporg* is a small Emacs Lisp project to help editing program strings and
 comments using Org mode (or any other major mode).  This can be useful as it is
-often more convenient to edit large pieces of text, like Emacs lisp or Python
+often more convenient to edit large pieces of text, like Emacs Lisp or Python
 docstrings, in an org-mode buffer instead of in a comment or a string.
 
 Emacs does not easily handle multiple major modes in a single buffer.  So far
@@ -31,7 +31,8 @@ the editing buffer to account for indentation (see =poporg-adjust-fill-column=).
 ** Installation
 
 To install *poporg*, move file =poporg.el= to a place where Emacs will find it.  You
-might byte-compile the file if you want.  There is also an [[https://github.com/dimitri/el-get][el-get]] recipe.
+might byte-compile the file if you want.  There are also [[https://github.com/dimitri/el-get][el-get]] and [[http://melpa.milkbox.net/][melpa]]
+recipes.
 
 To use *poporg*, you need to pick some unused keybinding and add a few lines to
 your =~/.emacs= file, such as:
