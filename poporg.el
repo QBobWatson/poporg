@@ -639,7 +639,7 @@ buffer instead."
       (push (list edit-buffer overlay prefix type) poporg-data)
       (overlay-put overlay 'poporg-overlay (car poporg-data))
       ;; All set up for editing.
-      (run-hooks 'poporg-edit-hook)
+      (with-demoted-errors "Edit hook error: %S" (run-hooks 'poporg-edit-hook))
       (poporg-mode +1)
       ;; Adjust fill column after running the hooks and setting the mode since
       ;; org-mode sets the fill column.
@@ -728,7 +728,8 @@ edit that instead."
                                    (symbol-name type) "-lines"))))
     (unless buffer
       (error "Not an edit buffer or original buffer vanished"))
-    (run-hooks 'poporg-edit-exit-hook)
+    (with-demoted-errors "Edit hook error: %S"
+      (run-hooks 'poporg-edit-exit-hook))
     (when (buffer-modified-p)
       ;; Move everything back in place.
       ;; Allow the inserter to edit the region.
