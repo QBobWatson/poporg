@@ -133,6 +133,10 @@ Dynamically bound variable.")
   "Keeps track of the value of point in the new buffer.
 Dynamically bound variable.")
 
+(defvar poporg-pre-window-configuration nil
+  "Variable to store the window configuration from before poporg buffer was
+opened.")
+
 ;; * Functions
 
 ;; ** utility
@@ -621,6 +625,7 @@ buffer instead."
            (end    (nth 1 reg))
            (prefix (nth 2 reg))
            (overlay (make-overlay start end)))
+      (setq poporg-pre-window-configuration (current-window-configuration))
       ;; Dim and protect the original text.
       (overlay-put overlay 'face 'poporg-edited-face)
       (overlay-put overlay 'intangible t)
@@ -740,14 +745,13 @@ edit that instead."
         (with-current-buffer buffer
           (funcall inserter edit-buffer start end prefix))
         (set-buffer-modified-p nil)))
-    (unless (one-window-p)
-      (delete-window))
-    (switch-to-buffer buffer)
-    (let ((inhibit-point-motion-hooks t))
-      (when poporg-new-point ; unset if unmodified or aborted
-        (goto-char poporg-new-point)))
     ;; Killing the buffer triggers a cleanup through the kill hook.
-    (kill-buffer edit-buffer)))
+    (kill-buffer edit-buffer)
+    (set-window-configuration poporg-pre-window-configuration)
+    (with-current-buffer buffer
+      (let ((inhibit-point-motion-hooks t))
+        (when poporg-new-point ; unset if unmodified or aborted
+          (goto-char poporg-new-point))))))
 
 ;; ** mode
 
