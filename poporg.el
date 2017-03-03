@@ -101,6 +101,8 @@ By default this hook enables `org-mode'."
 (defvar poporg-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map [remap save-buffer] 'poporg-edit-exit)
+    (define-key map (kbd "C-c C-c") 'poporg-update)
+    (define-key map (kbd "C-c C-s") 'poporg-update-and-save)
     map)
   "Keys used in `poporg-mode' buffers.")
 
@@ -134,8 +136,7 @@ Dynamically bound variable.")
 Dynamically bound variable.")
 
 (defvar poporg-pre-window-configuration nil
-  "Variable to store the window configuration from before poporg buffer was
-opened.")
+  "Variable to store the original window configuration.")
 
 ;; * Functions
 
@@ -269,23 +270,24 @@ onto the first line.  Delete trailing whitespace from blank lines if
   (let ((cur-buf (current-buffer))
         (prefix-no-ws (poporg-chomp-end prefix)))
     (with-current-buffer buf
-      (goto-char (point-min))
-      (while (not (eobp))
-        (let* ((s (point))
-               (char-at (char-after s))
-               e)
-          (forward-line 1)
-          (setq e (point))
-          (with-current-buffer cur-buf
-            (if no-first
-                (setq no-first nil)
-              (if (and poporg-delete-trailing-whitespace
-                       (or (null char-at) (= char-at ?\n)))
-                  ;; strip whitespace from prefix for blank lines
-                  (unless (eq poporg-delete-trailing-whitespace 'all)
-                    (insert prefix-no-ws))
-                (insert prefix)))
-            (poporg-insert-substring buf s e)))))))
+      (save-excursion
+        (goto-char (point-min))
+        (while (not (eobp))
+          (let* ((s (point))
+                 (char-at (char-after s))
+                 e)
+            (forward-line 1)
+            (setq e (point))
+            (with-current-buffer cur-buf
+              (if no-first
+                  (setq no-first nil)
+                (if (and poporg-delete-trailing-whitespace
+                         (or (null char-at) (= char-at ?\n)))
+                    ;; strip whitespace from prefix for blank lines
+                    (unless (eq poporg-delete-trailing-whitespace 'all)
+                      (insert prefix-no-ws))
+                  (insert prefix)))
+              (poporg-insert-substring buf s e))))))))
 
 ;; *** find string or comment
 
@@ -447,12 +449,12 @@ END are markers."
           (set-marker (make-marker) end2)
           prefix)))
 
-(defun poporg-insert-comment-lines (buf start end prefix)
+(defun poporg-insert-comment-lines (buf start end prefix overlay)
   "Insert the contents of BUF as comments in the current buffer.
 
 Replace the region from START to END and prepend PREFIX onto each line.  Append
 a trailing newline if necessary.  Uses `poporg-insert-with-prefix' to do the
-work."
+work.  Move OVERLAY to the newly-inserted region."
   (poporg-insert-with-prefix buf start end prefix)
   ;; For our purposes, comments always comprise entire lines, so insert a
   ;; trailing newline if necessary.
@@ -460,7 +462,8 @@ work."
           (save-excursion
             (goto-char (point-max))
             (and (char-before) (not (= (char-before) ?\n)))))
-    (insert "\n")))
+    (insert "\n"))
+  (move-overlay overlay start (point)))
 
 ;; *** insert from string
 
@@ -538,28 +541,33 @@ this function has the same usage as `poporg-get-comment-lines')."
           (set-marker (make-marker) end)
           prefix)))
 
-(defun poporg-insert-string-lines (buf start end prefix)
+(defun poporg-insert-string-lines (buf start end prefix overlay)
   "Insert the contents of BUF into a string in the current buffer.
 
 Replace the string between START and END and prepend PREFIX onto each interior
 line.  Skip delimiters on both sides.  Uses `poporg-insert-with-prefix' to do
-the work."
-  (save-excursion
-    (goto-char start)
-    (skip-syntax-forward "\"|")
-    (setq start (point)))
-  (save-excursion
-    (goto-char end)
-    (skip-syntax-backward "\"|")
-    (setq end (point)))
-  (poporg-insert-with-prefix buf start end prefix 'no-first-line)
-  ;; if the buffer is terminated by a newline, need to prepend the prefix before
-  ;; the closing delimiter
-  (when (with-current-buffer buf
-          (save-excursion
-            (goto-char (point-max))
-            (= (char-before) ?\n)))
-    (insert prefix)))
+the work.  Move OVERLAY to the newly-inserted region."
+  (let ((start-mark (set-marker (make-marker) start))
+        (end-mark (set-marker (make-marker) end)))
+    (save-excursion
+      (goto-char start)
+      (skip-syntax-forward "\"|")
+      (setq start (point)))
+    (save-excursion
+      (goto-char end)
+      (skip-syntax-backward "\"|")
+      (setq end (point)))
+    (poporg-insert-with-prefix buf start end prefix 'no-first-line)
+    ;; if the buffer is terminated by a newline, need to prepend the prefix before
+    ;; the closing delimiter
+    (when (with-current-buffer buf
+            (save-excursion
+              (goto-char (point-max))
+              (= (char-before) ?\n)))
+      (insert prefix))
+    (move-overlay overlay
+                  (marker-position start-mark)
+                  (marker-position end-mark))))
 
 ;; *** insert from region
 
@@ -597,13 +605,15 @@ and END are the same as the passed arguments."
               (set-marker (make-marker) end)
               prefix)))))
 
-(defun poporg-insert-region-lines (buf start end prefix)
+(defun poporg-insert-region-lines (buf start end prefix overlay)
   "Insert the contents of BUF into the current buffer.
 
 Replace the region between START and END and prepend PREFIX onto each line.
-This simply runs `poporg-insert-with-prefix'."
+This simply runs `poporg-insert-with-prefix'.  Move OVERLAY to the
+newly-inserted region."
   ;; don't have to do anything special
-  (poporg-insert-with-prefix buf start end prefix))
+  (poporg-insert-with-prefix buf start end prefix)
+  (move-overlay overlay start (point)))
 
 ;; ** make text mode buffer
 
@@ -633,10 +643,21 @@ buffer instead."
       ;; Initialize a popup edit buffer.
       (pop-to-buffer edit-buffer)
       (goto-char poporg-new-point)
-      (set-buffer-modified-p nil)
       ;; Don't allow undoing the initial buffer insertions.
       (buffer-disable-undo)
       (buffer-enable-undo)
+      ;; Save buffer contents to a temporary file so the undo command knows
+      ;; whether the contents have modified or not.  This could potentially have
+      ;; other uses later on.
+      (let ((buf-name (buffer-name)))
+        (set-visited-file-name (make-temp-file "poporg-"))
+        (rename-buffer buf-name t))
+      (let ((require-final-newline nil)) (save-buffer))
+      ;; This is mainly to hide the `save-buffer' message
+      (message
+       (substitute-command-keys
+        "poporg: type \\<poporg-mode-map>\\[poporg-edit-exit] when done"))
+      ;;(set-buffer-modified-p nil)
       ;; Save data and possibly activate hooks.
       (unless poporg-data
         (push 'poporg-kill-buffer-query kill-buffer-query-functions)
@@ -673,6 +694,8 @@ buffer instead."
 
 (defun poporg-kill-buffer-routine ()
   "Cleanup an edit buffer whenever killed."
+  ;; Delete the temporary file
+  (ignore-errors (set-buffer-modified-p nil) (delete-file (buffer-file-name)))
   (let ((entry (assq (current-buffer) poporg-data)))
     (when entry
       (let* ((overlay (cadr entry))
@@ -718,9 +741,13 @@ edit that instead."
           (user-error "Nothing to edit!"))))))))
 
 ;;;###autoload
-(defun poporg-edit-exit ()
-  "Exit the edit buffer, replacing the original region."
-  (interactive)
+(defun poporg-update (with-save)
+  "Update the contents of the original buffer.
+
+If prefix argument WITH-SAVE is non-nil, save the original buffer too.
+
+Also update the overlay."
+  (interactive "P")
   (let* ((edit-buffer (current-buffer))
          (entry (assq edit-buffer poporg-data))
          (overlay (cadr entry))
@@ -728,13 +755,10 @@ edit that instead."
          (prefix (caddr entry))
          (type (nth 3 entry))
          (poporg-orig-point (point))
-         poporg-new-point
          (inserter (intern (concat "poporg-insert-"
                                    (symbol-name type) "-lines"))))
     (unless buffer
       (error "Not an edit buffer or original buffer vanished"))
-    (with-demoted-errors "Edit hook error: %S"
-      (run-hooks 'poporg-edit-exit-hook))
     (when (buffer-modified-p)
       ;; Move everything back in place.
       ;; Allow the inserter to edit the region.
@@ -743,8 +767,38 @@ edit that instead."
       (let* ((start (overlay-start overlay))
              (end (overlay-end overlay)))
         (with-current-buffer buffer
-          (funcall inserter edit-buffer start end prefix))
-        (set-buffer-modified-p nil)))
+          ;; This updates the overlay
+          (funcall inserter edit-buffer start end prefix overlay))
+        ;; This is only used to mark the buffer as saved at this tamestamp, so
+        ;; undo knows at what stage the buffer is unmodified
+        (let ((require-final-newline nil)) (save-buffer))
+        ;; This is manily to hide the `save-buffer' message
+        (message "poporg: original buffer updated"))
+      (overlay-put overlay 'intangible t)
+      (overlay-put overlay 'read-only t))
+    (with-current-buffer buffer (undo-boundary))
+    (when with-save (with-current-buffer buffer (save-buffer)))))
+
+;;;###autoload
+(defun poporg-update-and-save ()
+  "Update and save the original buffer; update the region."
+  (interactive)
+  (poporg-update t))
+
+;;;###autoload
+(defun poporg-edit-exit ()
+  "Exit the edit buffer, replacing the original region."
+  (interactive)
+  (let* ((edit-buffer (current-buffer))
+         (entry (assq edit-buffer poporg-data))
+         (overlay (cadr entry))
+         (buffer (when overlay (overlay-buffer overlay)))
+         poporg-new-point)
+    (unless buffer
+      (error "Not an edit buffer or original buffer vanished"))
+    (poporg-update nil)
+    (with-demoted-errors "Edit hook error: %S"
+      (run-hooks 'poporg-edit-exit-hook))
     ;; Killing the buffer triggers a cleanup through the kill hook.
     (kill-buffer edit-buffer)
     (set-window-configuration poporg-pre-window-configuration)
