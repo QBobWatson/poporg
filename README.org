@@ -88,8 +88,7 @@ in the edit buffer.  It contains the following keybindings by default:
   |------------------------+------------+-----------------------------------|
   | *poporg-edit-exit*       | =C-x C-s=    | Save edit and kill poporg buffer  |
   | *poporg-update*          | =C-c C-c=    | Save edit and keep poporg buffer  |
-  | *poporg-update-and-save* | =C-c C-s=    | Save edit and keep poporg buffer; |
-  |                        |            | then save original buffer         |
+  | *poporg-update-and-save* | =C-c C-s=    | Save edit and keep poporg buffer; then save the original buffer |
   |------------------------+------------+-----------------------------------|
 
 You can add additional keybindings to =poporg-mode-map=.  To abort the edit simply
