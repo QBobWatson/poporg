@@ -695,12 +695,13 @@ buffer instead."
 (defun poporg-kill-buffer-routine ()
   "Cleanup an edit buffer whenever killed."
   ;; Delete the temporary file
-  (ignore-errors (set-buffer-modified-p nil) (delete-file (buffer-file-name)))
   (let ((entry (assq (current-buffer) poporg-data)))
     (when entry
       (let* ((overlay (cadr entry))
              (buffer (overlay-buffer overlay)))
         (when buffer
+          (ignore-errors (set-buffer-modified-p nil)
+                         (delete-file (buffer-file-name)))
           (delete-overlay overlay)
           (setq poporg-data (delq entry poporg-data))
           (unless poporg-data
