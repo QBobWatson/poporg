@@ -34,9 +34,6 @@
 
 ;;; Code:
 
-(eval-when-compile
-  (require 'cl))
-
 ;; * Customs
 ;; ** Group
 
@@ -59,7 +56,7 @@ If non-nil, in the edit buffer decrement `fill-column' by the prefix length."
 
 If t, when inserting a blank line from the edit buffer back into the source
 buffer, remove trailing whitespace from the prefix.  This is very useful when
-editing docstrings in python, for instance.  If equal to the symbol 'all, don't
+editing docstrings in python, for instance.  If equal to the symbol `all', don't
 insert the prefix at all for blank lines."
   :group 'poporg
   :type '(choice
@@ -124,8 +121,8 @@ By default this hook enables `org-mode'."
 For each edit BUFFER, there is an OVERLAY graying out the edited block comment
 or string in the original buffer, and a PREFIX that was removed from all lines
 in the edit buffer and which is going to be prepended to these lines before
-returning them the original buffer.  TYPE is either 'string, 'comment, or
-'region.")
+returning them the original buffer.  TYPE is either `string', `comment', or
+`region'.")
 
 (defvar poporg-orig-point nil
   "Keeps track of the value of point in the calling buffer.
@@ -190,6 +187,8 @@ If yes, pop the editing buffer for the first one and return t."
   (let ((com-start (if comment-start (poporg-chomp comment-start) "")))
     (when (looking-at (regexp-quote com-start))
       (goto-char (match-end 0))))
+  (when (looking-at comment-start-skip)
+    (goto-char (match-end 0)))
   (skip-syntax-forward "<"))
 
 (defun poporg-skip-past-comment-end ()
@@ -197,7 +196,9 @@ If yes, pop the editing buffer for the first one and return t."
   (skip-syntax-forward " ")
   (let ((com-end (if comment-end (poporg-chomp comment-end) "")))
     (when (looking-at (regexp-quote com-end))
-      (goto-char (match-end 0)))))
+      (goto-char (match-end 0))))
+  (when (looking-at comment-end-skip)
+    (goto-char (match-end 0))))
 
 ;; *** check whitespace
 
@@ -304,7 +305,7 @@ If a string or comment was found, return a list
 
    (TYPE START END)
 
-where TYPE is either 'string or 'comment and START and END are markers.  The
+where TYPE is either `string' or `comment' and START and END are markers.  The
 enclosed region includes the delimiters.
 
 If a comment was found, the region between START and END is a number of complete
@@ -812,7 +813,7 @@ Also update the overlay."
 
 (define-minor-mode poporg-mode
   "Install keybindings for a poporg edit buffer."
-  nil " pop" poporg-mode-map)
+  :lighter "pop" :keymap poporg-mode-map)
 
 
 (provide 'poporg)
